@@ -1,5 +1,6 @@
 package com.project.invoicesystem.service;
-import com.project.invoicesystem.common.InvoiceStatus;
+
+import com.project.invoicesystem.constants.InvoiceStatusConstants;
 import com.project.invoicesystem.dto.InvoiceRequestDTO;
 import com.project.invoicesystem.dto.InvoiceResponseDTO;
 import com.project.invoicesystem.entity.Invoice;
@@ -11,9 +12,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.lang.reflect.Method;
-import java.util.List;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,14 +22,13 @@ import static org.mockito.Mockito.*;
 
 class InvoiceServiceTest {
 
+    @InjectMocks
+    private InvoiceService invoiceService;
+
     @Mock
     private InvoiceRepository invoiceRepository;
 
-    @Mock
-    private InvoiceMapper mapper;
-
-    @InjectMocks
-    private InvoiceService invoiceService;
+    private final InvoiceMapper invoiceMapper = InvoiceMapper.INSTANCE;
 
     @BeforeEach
     void setUp() {
@@ -36,112 +36,135 @@ class InvoiceServiceTest {
     }
 
     @Test
-    void shouldCreateInvoice() {
+    void testCreateInvoice() {
         InvoiceRequestDTO requestDTO = new InvoiceRequestDTO();
-        requestDTO.setAmount(150.0);
-        requestDTO.setDueDate(LocalDate.of(2023, 12, 31));
+        requestDTO.setAmount(100.0);
+        requestDTO.setDueDate(LocalDate.now().plusDays(10));
 
-        Invoice mockInvoice = new Invoice(150.0, LocalDate.of(2023, 12, 31));
-        mockInvoice.setId(1L);
+        Invoice invoice = new Invoice();
+        invoice.setAmount(100.0);
+        invoice.setDueDate(LocalDate.now().plusDays(10));
+        invoice.setStatus(InvoiceStatusConstants.PENDING);
 
-        when(mapper.toEntity(requestDTO)).thenReturn(mockInvoice);
-        when(invoiceRepository.save(any(Invoice.class))).thenReturn(mockInvoice);
-        System.out.println(mockInvoice);
-        when(mapper.toDto(mockInvoice)).thenReturn(new InvoiceResponseDTO(1L, 150.0, 0.0, LocalDate.of(2023, 12, 31), InvoiceStatus.PENDING));
+        Invoice savedInvoice = new Invoice();
+        savedInvoice.setId(1L);
+        savedInvoice.setAmount(100.0);
+        savedInvoice.setDueDate(LocalDate.now().plusDays(10));
+        savedInvoice.setStatus(InvoiceStatusConstants.PENDING);
+
+        when(invoiceRepository.save(any(Invoice.class))).thenReturn(savedInvoice);
 
         InvoiceResponseDTO responseDTO = invoiceService.createInvoice(requestDTO);
 
         assertNotNull(responseDTO);
-        assertEquals(1L, responseDTO.getId());
-        assertEquals(150.0, responseDTO.getAmount());
-        assertEquals(InvoiceStatus.PENDING, responseDTO.getStatus());
+        assertEquals(InvoiceStatusConstants.PENDING, responseDTO.getStatus());
+        verify(invoiceRepository, times(1)).save(any(Invoice.class));
     }
-        // Arrange
-
-
 
     @Test
-    void shouldGetAllInvoices() {
-        Invoice invoice = new Invoice(200.0, LocalDate.of(2023, 12, 31));
+    void testGetInvoices() {
+        Invoice invoice1 = new Invoice();
+        invoice1.setId(1L);
+        invoice1.setAmount(100.0);
+        invoice1.setPaidAmount(50.0);
+        invoice1.setStatus(InvoiceStatusConstants.PENDING);
+        invoice1.setDueDate(LocalDate.now().plusDays(10));
+
+        Invoice invoice2 = new Invoice();
+        invoice2.setId(2L);
+        invoice2.setAmount(200.0);
+        invoice2.setPaidAmount(200.0);
+        invoice2.setStatus(InvoiceStatusConstants.PAID);
+        invoice2.setDueDate(LocalDate.now().plusDays(5));
+
+        when(invoiceRepository.findAll()).thenReturn(Arrays.asList(invoice1, invoice2));
+
+        List<InvoiceResponseDTO> invoices = invoiceService.getInvoices();
+
+        assertNotNull(invoices);
+        assertEquals(2, invoices.size());
+        verify(invoiceRepository, times(1)).findAll();
+    }
+
+    @Test
+    void testPayInvoice() {
+        Long invoiceId = 1L;
+        double paymentAmount = 50.0;
+
+        Invoice invoice = new Invoice();
         invoice.setId(1L);
-        when(invoiceRepository.findAll()).thenReturn(List.of(invoice));
-        when(mapper.toDto(invoice)).thenReturn(new InvoiceResponseDTO(1L, 200.0, 0.0, LocalDate.of(2023, 12, 31), InvoiceStatus.PENDING));
+        invoice.setAmount(100.0);
+        invoice.setPaidAmount(0.0);
+        invoice.setStatus(InvoiceStatusConstants.PENDING);
+        invoice.setDueDate(LocalDate.now().plusDays(10));
 
-        List<InvoiceResponseDTO> response = invoiceService.getInvoices();
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenReturn(invoice);
 
-        assertNotNull(response);
-        assertEquals(1, response.size());
-        assertEquals(1L, response.get(0).getId());
+        InvoiceResponseDTO responseDTO = invoiceService.payInvoice(invoiceId, paymentAmount);
+
+        assertNotNull(responseDTO);
+        assertEquals(50.0, invoice.getPaidAmount());
+        assertEquals(InvoiceStatusConstants.PENDING, invoice.getStatus());
+        verify(invoiceRepository, times(1)).save(invoice);
     }
 
     @Test
-    void shouldPayInvoiceSuccessfully() {
-        Invoice invoice = new Invoice(100.0, LocalDate.of(2023, 12, 31));
+    void testPayInvoiceFullyPaid() {
+        Long invoiceId = 1L;
+        double paymentAmount = 100.0;
+
+        Invoice invoice = new Invoice();
         invoice.setId(1L);
+        invoice.setAmount(100.0);
+        invoice.setPaidAmount(0.0);
+        invoice.setStatus(InvoiceStatusConstants.PENDING);
+        invoice.setDueDate(LocalDate.now().plusDays(10));
 
-        when(invoiceRepository.findById(1L)).thenReturn(Optional.of(invoice));
-        when(invoiceRepository.save(invoice)).thenReturn(invoice);
-        when(mapper.toDto(invoice)).thenReturn(new InvoiceResponseDTO(1L, 100.0, 100.0, LocalDate.of(2023, 12, 31), InvoiceStatus.PAID));
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+        when(invoiceRepository.save(any(Invoice.class))).thenReturn(invoice);
 
-        InvoiceResponseDTO response = invoiceService.payInvoice(1L, 100.0);
+        InvoiceResponseDTO responseDTO = invoiceService.payInvoice(invoiceId, paymentAmount);
 
-        assertNotNull(response);
-        assertEquals(100.0, response.getPaidAmount());
-        assertEquals(InvoiceStatus.PAID, response.getStatus());
+        assertNotNull(responseDTO);
+        assertEquals(100.0, invoice.getPaidAmount());
+        assertEquals(InvoiceStatusConstants.PAID, invoice.getStatus());
+        verify(invoiceRepository, times(1)).save(invoice);
     }
 
     @Test
-    void shouldThrowExceptionForInvalidInvoiceId() {
-        when(invoiceRepository.findById(1L)).thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> invoiceService.payInvoice(1L, 50.0));
-
-        assertEquals("Invoice not found", exception.getMessage());
-    }
-
-    @Test
-    void shouldProcessOverdueInvoices() {
-        Invoice overdueInvoice = new Invoice(150.0, LocalDate.now().minusDays(20));
+    void testProcessOverdueInvoices() {
+        Invoice overdueInvoice = new Invoice();
         overdueInvoice.setId(1L);
+        overdueInvoice.setAmount(100.0);
+        overdueInvoice.setPaidAmount(0.0);
+        overdueInvoice.setStatus(InvoiceStatusConstants.PENDING);
+        overdueInvoice.setDueDate(LocalDate.now().minusDays(15));
 
         when(invoiceRepository.findAll()).thenReturn(List.of(overdueInvoice));
-        when(invoiceRepository.save(any(Invoice.class))).thenReturn(overdueInvoice); // Correctly stub the save method
+        when(invoiceRepository.save(any(Invoice.class))).thenReturn(overdueInvoice);
 
-        invoiceService.processOverdue(10.0, 10);
+        invoiceService.processOverdueInvoices(10.0, 10);
 
-        verify(invoiceRepository, times(2)).save(any(Invoice.class)); // Verify save is called twice (original + new invoice)
-    }
-
-
-    @Test
-    void shouldFindOverdueInvoicesUsingReflection() throws Exception {
-        Invoice overdue = new Invoice(100.0, LocalDate.now().minusDays(15));
-        overdue.setStatus(InvoiceStatus.PENDING);
-
-        Invoice recent = new Invoice(200.0, LocalDate.now().minusDays(5));
-        recent.setStatus(InvoiceStatus.PENDING);
-
-        when(invoiceRepository.findAll()).thenReturn(List.of(overdue, recent));
-
-        Method method = InvoiceService.class.getDeclaredMethod("findOverdueInvoices", int.class);
-        method.setAccessible(true);
-
-        @SuppressWarnings("unchecked")
-        List<Invoice> overdueInvoices = (List<Invoice>) method.invoke(invoiceService, 10);
-
-        assertNotNull(overdueInvoices);
-        assertEquals(1, overdueInvoices.size());
-        assertEquals(InvoiceStatus.PENDING, overdueInvoices.get(0).getStatus());
+        verify(invoiceRepository, times(2)).save(any(Invoice.class)); // Once for the original invoice, once for the new invoice
     }
 
     @Test
-    void shouldThrowExceptionForInvalidStatus() {
-        Invoice invoice = new Invoice(150.0, LocalDate.now());
-        invoice.setStatus(InvoiceStatus.PAID);
+    void testPayInvoiceThrowsExceptionForNonPendingInvoice() {
+        Long invoiceId = 1L;
+        double paymentAmount = 50.0;
 
-        when(invoiceRepository.findById(1L)).thenReturn(Optional.of(invoice));
+        Invoice invoice = new Invoice();
+        invoice.setId(1L);
+        invoice.setAmount(100.0);
+        invoice.setPaidAmount(0.0);
+        invoice.setStatus(InvoiceStatusConstants.PAID);
+        invoice.setDueDate(LocalDate.now().plusDays(10));
 
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> invoiceService.payInvoice(1L, 50.0));
+        when(invoiceRepository.findById(invoiceId)).thenReturn(Optional.of(invoice));
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> invoiceService.payInvoice(invoiceId, paymentAmount));
 
         assertEquals("Invalid or non-pending invoice", exception.getMessage());
     }

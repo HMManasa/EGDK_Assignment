@@ -1,21 +1,23 @@
 package com.project.invoicesystem.controller;
-import com.project.invoicesystem.common.InvoiceStatus;
+
+import com.project.invoicesystem.constants.InvoiceStatusConstants;
 import com.project.invoicesystem.dto.InvoiceRequestDTO;
 import com.project.invoicesystem.dto.InvoiceResponseDTO;
 import com.project.invoicesystem.service.InvoiceService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.junit.jupiter.api.BeforeEach;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.when;
 
 class InvoiceControllerTest {
 
@@ -31,12 +33,12 @@ class InvoiceControllerTest {
     }
 
     @Test
-    void createInvoice_shouldReturnCreatedInvoice() {
+    void testCreateInvoice() {
         InvoiceRequestDTO requestDTO = new InvoiceRequestDTO();
         requestDTO.setAmount(100.0);
         requestDTO.setDueDate(LocalDate.of(2023, 12, 31));
 
-        InvoiceResponseDTO responseDTO = new InvoiceResponseDTO(1L, 100.0, 0.0, LocalDate.of(2023, 12, 31), InvoiceStatus.PENDING);
+        InvoiceResponseDTO responseDTO = new InvoiceResponseDTO(1L, 100.0, 0.0, LocalDate.of(2023, 12, 31), InvoiceStatusConstants.PENDING);
 
         when(invoiceService.createInvoice(requestDTO)).thenReturn(responseDTO);
 
@@ -46,12 +48,12 @@ class InvoiceControllerTest {
         assertNotNull(response.getBody(), "Response body is null");
         assertEquals(201, response.getStatusCode().value());
         assertEquals(1L, response.getBody().getId());
-        assertEquals(InvoiceStatus.PENDING, response.getBody().getStatus());
+        assertEquals(InvoiceStatusConstants.PENDING, response.getBody().getStatus());
     }
 
     @Test
-    void getInvoices_shouldReturnAllInvoices() {
-        InvoiceResponseDTO responseDTO = new InvoiceResponseDTO(1L, 100.0, 0.0, LocalDate.of(2023, 12, 31), InvoiceStatus.PENDING);
+    void testGetInvoices() {
+        InvoiceResponseDTO responseDTO = new InvoiceResponseDTO(1L, 100.0, 0.0, LocalDate.of(2023, 12, 31), InvoiceStatusConstants.PENDING);
 
         when(invoiceService.getInvoices()).thenReturn(List.of(responseDTO));
 
@@ -64,8 +66,8 @@ class InvoiceControllerTest {
     }
 
     @Test
-    void payInvoice_shouldReturnUpdatedInvoice() {
-        InvoiceResponseDTO responseDTO = new InvoiceResponseDTO(1L, 100.0, 100.0, LocalDate.of(2023, 12, 31), InvoiceStatus.PAID);
+    void testPayInvoice() {
+        InvoiceResponseDTO responseDTO = new InvoiceResponseDTO(1L, 100.0, 100.0, LocalDate.of(2023, 12, 31), InvoiceStatusConstants.PAID);
 
         when(invoiceService.payInvoice(1L, 100.0)).thenReturn(responseDTO);
 
@@ -74,7 +76,14 @@ class InvoiceControllerTest {
         assertNotNull(response);
         assertNotNull(response.getBody(), "Response body is null");
         assertEquals(200, response.getStatusCode().value());
-        assertEquals(InvoiceStatus.PAID, response.getBody().getStatus());
+        assertEquals(InvoiceStatusConstants.PAID, response.getBody().getStatus());
         assertEquals(100.0, response.getBody().getPaidAmount());
+    }
+
+    @Test
+    void testProcessOverdue() {
+        Map<String, Object> request = Map.of("late_fee", 50.0, "overdue_days", 30);
+        ResponseEntity<Void> response = invoiceController.processOverdue(request);
+        assert response.getStatusCode() == HttpStatus.NO_CONTENT;
     }
 }

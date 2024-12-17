@@ -1,12 +1,13 @@
 package com.project.invoicesystem.entity;
 
 
-import com.project.invoicesystem.common.InvoiceStatus;
-import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
+import com.project.invoicesystem.constants.InvoiceStatusConstants;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 
 import java.time.LocalDate;
 
@@ -21,16 +22,12 @@ public class Invoice {
     private double amount;
     private double paidAmount;
     private LocalDate dueDate;
-    @Enumerated(EnumType.STRING)
-    private InvoiceStatus status;
-
-
-    //public Invoice() {}
+    private String status;
 
     public Invoice(double amount, LocalDate dueDate) {
         this.amount = amount;
         this.paidAmount = 0;
         this.dueDate = dueDate;
-        this.status = InvoiceStatus.PENDING;
+        this.status = InvoiceStatusConstants.PENDING;
     }
 }

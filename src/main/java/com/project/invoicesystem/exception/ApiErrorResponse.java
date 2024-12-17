@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 
 @Getter
 public class ApiErrorResponse {
-    // Getters
     private LocalDateTime timestamp;
     private String message;
     private String details;
